@@ -120,7 +120,7 @@
 			android:layout_height="wrap_content"
 			android:layout_gravity="center_vertical"
 			android:src="@mipmap/arrow_down"
-			android:visibility="gone"/>
+			android:visibility="visible"/>
 
 		<View
 			android:layout_width="match_parent"

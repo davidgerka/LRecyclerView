@@ -25,7 +25,7 @@ public class StickyHeaderFragment extends BaseDecorationFragment implements Recy
         mLRecyclerViewAdapter = new LRecyclerViewAdapter(adapter);
         list.setAdapter(mLRecyclerViewAdapter);
 
-        list.addItemDecoration(decor, 1);
+        list.addItemDecoration(decor, 0);
         list.addOnItemTouchListener(this);
 
     }

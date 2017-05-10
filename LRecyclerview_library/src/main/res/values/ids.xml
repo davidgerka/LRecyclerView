@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+
+    <!-- Recycler -->
+    <item name="chinaway_ui_tags_recycler_view_holder" type="id" />
+    <item name="chinaway_ui_recycler_pull_view" type="id" />
+    <item name="chinaway_ui_recycler_view" type="id" />
+
+
+    <item name="chinaway_ui_recycler_group_title" type="id" />
+    <item name="chinaway_ui_recycler_group_indicator" type="id" />
+    <item name="chinaway_ui_recycler_suspend_bar_container" type="id" />
+    <!-- End Recycler -->
+
+
+</resources>

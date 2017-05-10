@@ -62,7 +62,7 @@ public class ExpandableRecyclerViewOneActivity extends AppCompatActivity {
 
 
         mDataAdapter = new CommentExpandAdapter(this,mRecyclerView);
-        mDataAdapter.setMode(ExpandableRecyclerAdapter.MODE_ACCORDION);
+        mDataAdapter.setMode(ExpandableRecyclerAdapter.MODE_NORMAL);
         mLRecyclerViewAdapter = new LRecyclerViewAdapter(mDataAdapter);
         mRecyclerView.setAdapter(mLRecyclerViewAdapter);
 

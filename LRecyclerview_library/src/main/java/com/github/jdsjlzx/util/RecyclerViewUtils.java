@@ -25,7 +25,9 @@ public class RecyclerViewUtils {
 
             int headerViewCounter = ((LRecyclerViewAdapter) outerAdapter).getHeaderViewsCount();
             if (headerViewCounter > 0) {
-                return holder.getLayoutPosition() - (headerViewCounter + 1);
+                return holder.getLayoutPosition() - (headerViewCounter + 1);    //减1是因为要减去刷新头
+            } else {
+                return holder.getLayoutPosition() - 1;  //减1是因为要减去刷新头
             }
         }
 

@@ -38,10 +38,12 @@ public class EndlessLinearLayoutActivity extends AppCompatActivity{
     private static final String TAG = "lzx";
 
     /**服务器端一共多少条数据*/
-    private static final int TOTAL_COUNTER = 34;//如果服务器没有返回总数据或者总页数，这里设置为最大值比如10000，什么时候没有数据了根据接口返回判断
+    private static final int TOTAL_COUNTER = 14;//如果服务器没有返回总数据或者总页数，这里设置为最大值比如10000，什么时候没有数据了根据接口返回判断
 
     /**每一页展示多少条数据*/
     private static final int REQUEST_COUNT = 10;
+    private static final int SUM = 4;
+    int kaka = SUM;
 
     /**已经获取到多少条数据了*/
     private static int mCurrentCounter = 0;
@@ -80,18 +82,19 @@ public class EndlessLinearLayoutActivity extends AppCompatActivity{
         mRecyclerView.setRefreshProgressStyle(ProgressStyle.LineSpinFadeLoader);
         mRecyclerView.setArrowImageView(R.drawable.ic_pulltorefresh_arrow);
         mRecyclerView.setLoadingMoreProgressStyle(ProgressStyle.BallSpinFadeLoader);
-
+        mRecyclerView.setShowNoMore(true);
         //add a HeaderView
         final View header = LayoutInflater.from(this).inflate(R.layout.sample_header,(ViewGroup)findViewById(android.R.id.content), false);
+        final View empty = LayoutInflater.from(this).inflate(R.layout.sample_empty_item,(ViewGroup)findViewById(android.R.id.content), false);
         mLRecyclerViewAdapter.addHeaderView(header);
 
         mRecyclerView.setOnRefreshListener(new OnRefreshListener() {
             @Override
             public void onRefresh() {
 
-                mDataAdapter.clear();
-                mLRecyclerViewAdapter.notifyDataSetChanged();//fix bug:crapped or attached views may not be recycled. isScrap:false isAttached:true
-                mCurrentCounter = 0;
+//                mDataAdapter.clear();
+//                mLRecyclerViewAdapter.notifyDataSetChanged();//fix bug:crapped or attached views may not be recycled. isScrap:false isAttached:true
+//                mCurrentCounter = 0;
                 requestData();
 
             }
@@ -103,7 +106,7 @@ public class EndlessLinearLayoutActivity extends AppCompatActivity{
 
                 if (mCurrentCounter < TOTAL_COUNTER) {
                     // loading more
-                    requestData();
+                    requestLoadMoreData();
                 } else {
                     //the end
                     mRecyclerView.setNoMore(true);
@@ -169,12 +172,22 @@ public class EndlessLinearLayoutActivity extends AppCompatActivity{
         mLRecyclerViewAdapter.notifyDataSetChanged();
     }
 
+    private void setItems(ArrayList<ItemModel> list) {
+
+        mDataAdapter.setDataList(list);
+        mCurrentCounter = list.size();
+
+    }
+
     private void addItems(ArrayList<ItemModel> list) {
 
         mDataAdapter.addAll(list);
         mCurrentCounter += list.size();
 
     }
+
+
+
 
     private class PreviewHandler extends Handler {
 
@@ -192,14 +205,37 @@ public class EndlessLinearLayoutActivity extends AppCompatActivity{
             }
             switch (msg.what) {
 
-                case -1:
+                case -1:    //下拉刷新
 
+                {
+                    int currentSize = 0;
+
+                    //模拟组装10个数据
+                    ArrayList<ItemModel> newList = new ArrayList<>();
+                    for (int i = 0; i < kaka; i++) {
+
+                        ItemModel item = new ItemModel();
+                        item.id = currentSize + i;
+                        item.title = "item" + (item.id);
+
+                        newList.add(item);
+                    }
+
+                    activity.setItems(newList);
+
+                    activity.mRecyclerView.refreshComplete(REQUEST_COUNT, false);
+                    if(--kaka < 0){
+                        kaka = SUM;
+                    }
+                }
+                    break;
+                case -2:    //加载更多
                     int currentSize = activity.mDataAdapter.getItemCount();
 
                     //模拟组装10个数据
                     ArrayList<ItemModel> newList = new ArrayList<>();
                     for (int i = 0; i < 10; i++) {
-                        if (newList.size() + currentSize >= TOTAL_COUNTER) {
+                        if(currentSize + i > TOTAL_COUNTER){
                             break;
                         }
 
@@ -211,12 +247,10 @@ public class EndlessLinearLayoutActivity extends AppCompatActivity{
                     }
 
                     activity.addItems(newList);
-
-                    activity.mRecyclerView.refreshComplete(REQUEST_COUNT);
-
+                    activity.mRecyclerView.refreshComplete(REQUEST_COUNT, true);
                     break;
                 case -3:
-                    activity.mRecyclerView.refreshComplete(REQUEST_COUNT);
+                    activity.mRecyclerView.refreshComplete(REQUEST_COUNT, false);
                     activity.notifyDataSetChanged();
                     activity.mRecyclerView.setOnNetWorkErrorListener(new OnNetWorkErrorListener() {
                         @Override
@@ -254,6 +288,33 @@ public class EndlessLinearLayoutActivity extends AppCompatActivity{
                     mHandler.sendEmptyMessage(-1);
                 } else {
                     mHandler.sendEmptyMessage(-3);
+                }
+            }
+        }.start();
+    }
+
+    /**
+     * 模拟请求网络，加载更多
+     */
+    private void requestLoadMoreData() {
+        Log.d(TAG, "requestLoadMoreData");
+        new Thread() {
+
+            @Override
+            public void run() {
+                super.run();
+
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+                //模拟一下网络请求失败的情况
+                if(NetworkUtils.isNetAvailable(getApplicationContext())) {
+                    mHandler.sendEmptyMessage(-2);
+                } else {
+                    mHandler.sendEmptyMessage(-4);
                 }
             }
         }.start();

@@ -18,10 +18,9 @@ import java.util.List;
  * 
  */
 public class LuRecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
-
-    private static final int TYPE_NORMAL = 0;
-    private static final int TYPE_FOOTER_VIEW = 10001;
-    private static final int HEADER_INIT_INDEX = 10002;
+    private static final int HEADER_INIT_INDEX = 10001;
+    private static final int TYPE_FOOTER_VIEW = 20000;
+    private static final int TYPE_NORMAL = -1;
     private static List<Integer> mHeaderTypes = new ArrayList<>();
 
 
