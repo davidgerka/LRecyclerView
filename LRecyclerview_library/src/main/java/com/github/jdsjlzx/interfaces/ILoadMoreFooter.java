@@ -27,7 +27,16 @@ public interface ILoadMoreFooter {
     void onNoMore();
 
     /**
+     * 状态回调，网络出错
+     */
+    void onNetWorkError();
+
+    /**
      * 加载更多的View
      */
     View getFootView();
+
+    public enum State {
+        Normal/**正常*/, NoMore/**加载到最底了*/, Loading/**加载中..*/, NetWorkError/**网络异常*/
+    }
 }

@@ -44,6 +44,7 @@ public class LRecyclerView extends RecyclerView {
     private boolean mLoadingData = false;//是否正在加载数据
     private OnRefreshListener mRefreshListener;
     private OnLoadMoreListener mLoadMoreListener;
+    private OnNetWorkErrorListener mNetWorkErrorListener;
     private LScrollListener mLScrollListener;
     private IRefreshHeader mRefreshHeader;
     private ILoadMoreFooter mLoadMoreFooter;
@@ -322,7 +323,37 @@ public class LRecyclerView extends RecyclerView {
         }
     }
 
-    
+    /**
+     * 下拉刷新/上拉加载完成之后都要调用该方法
+     *
+     * @param pageSize 每一页的数据为多少项，不知道的话填0
+     * @param noMore   该参数只对上拉加载更多有效，没有更多分页了就填true
+     */
+    public void refreshComplete(int pageSize, boolean noMore, boolean suc) {
+        this.mPageSize = pageSize;
+        if (mRefreshing) {
+            mRefreshing = false;
+            mRefreshHeader.refreshComplete();
+            int itemCount = mWrapAdapter.getInnerAdapter().getItemCount();
+            if(itemCount == 0){     //没有数据
+                setNoMore(true);
+                setShowFooterView(false);
+            }else if(itemCount < pageSize) {    //item不够一页的数目
+                setNoMore(true);
+                setShowFooterView(showNoMore);
+            }else {
+                setNoMore(false);
+                setShowFooterView(true);
+            }
+        } else if (mLoadingData) {
+            setNoMore(noMore);
+            if (noMore) { //没有更多数据
+                setShowFooterView(showNoMore);
+            } else { //还有数据
+                setShowFooterView(true);
+            }
+        }
+    }
 
 
     /**
@@ -437,6 +468,10 @@ public class LRecyclerView extends RecyclerView {
         }
     }
 
+    /**
+     * 设置LoadMoreFooter加载中的进度条样式，只对默认的LoadingFooter有效，如果是自己定义的LoadMoreFooter，自己在view里面实现
+     * @param style
+     */
     public void setLoadingMoreProgressStyle(int style) {
         if (mLoadMoreFooter != null && mLoadMoreFooter instanceof LoadingFooter) {
             ((LoadingFooter) mLoadMoreFooter).setProgressStyle(style);
@@ -453,17 +488,25 @@ public class LRecyclerView extends RecyclerView {
     }
 
     public void setOnNetWorkErrorListener(final OnNetWorkErrorListener listener) {
-        final LoadingFooter loadingFooter = ((LoadingFooter) mFootView);
-        loadingFooter.setState(LoadingFooter.State.NetWorkError);
-        loadingFooter.setOnClickListener(new OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                mLoadMoreFooter.onLoading();
-                listener.reload();
-            }
-        });
+        mNetWorkErrorListener = listener;
+        if(mLoadMoreFooter != null && mFootView != null){
+            mLoadMoreFooter.onNetWorkError();
+            mFootView.setOnClickListener(new OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    mLoadMoreFooter.onLoading();
+                    mNetWorkErrorListener.reload();
+                }
+            });
+        }
     }
 
+    /**
+     * 设置LoadMoreFooter各个状态的提示语，只对默认的LoadingFooter有效，如果是自己定义的LoadMoreFooter，自己在view里面实现
+     * @param loading
+     * @param noMore
+     * @param noNetWork
+     */
     public void setFooterViewHint(String loading, String noMore, String noNetWork) {
         if (mLoadMoreFooter != null && mLoadMoreFooter instanceof LoadingFooter) {
             LoadingFooter loadingFooter = ((LoadingFooter) mLoadMoreFooter);
@@ -474,7 +517,7 @@ public class LRecyclerView extends RecyclerView {
     }
 
     /**
-     * 设置Footer文字颜色
+     * 设置LoadMoreFooter文字颜色，只对默认的LoadingFooter有效，如果是自己定义的LoadMoreFooter，自己在view里面实现
      *
      * @param indicatorColor
      * @param hintColor

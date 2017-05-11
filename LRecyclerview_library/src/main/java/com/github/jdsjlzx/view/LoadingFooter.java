@@ -128,6 +128,11 @@ public class LoadingFooter extends RelativeLayout implements ILoadMoreFooter{
     }
 
     @Override
+    public void onNetWorkError() {
+        setState(State.NetWorkError);
+    }
+
+    @Override
     public View getFootView() {
         return this;
     }
@@ -240,7 +245,4 @@ public class LoadingFooter extends RelativeLayout implements ILoadMoreFooter{
     }
 
 
-    public enum State {
-        Normal/**正常*/, NoMore/**加载到最底了*/, Loading/**加载中..*/, NetWorkError/**网络异常*/
-    }
 }
