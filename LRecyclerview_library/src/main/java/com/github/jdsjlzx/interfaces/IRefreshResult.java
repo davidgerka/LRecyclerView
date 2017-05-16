@@ -4,7 +4,8 @@ import android.view.View;
 import android.widget.TextView;
 
 /**
- * RecyclerView的RefreshResultHeader需要实现的接口
+ * RecyclerView的下拉刷新结果view接口，如果用自定义view，需要实现的该接口
+ * 参照{@link com.github.jdsjlzx.view.RefreshResultHeader}
  */
 public interface IRefreshResult {
     /**

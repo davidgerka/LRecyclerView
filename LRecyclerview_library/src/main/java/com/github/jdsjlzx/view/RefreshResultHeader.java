@@ -30,6 +30,11 @@ public class RefreshResultHeader extends RelativeLayout implements IRefreshResul
     private int noDataColor = R.color.refreshresult;
     private int noNetWorkColor = R.color.refreshresult;
 
+    public RefreshResultHeader(Context context) {
+        super(context);
+        init(context, -1);
+    }
+
     public RefreshResultHeader(Context context, int resId) {
         super(context);
         init(context, resId);

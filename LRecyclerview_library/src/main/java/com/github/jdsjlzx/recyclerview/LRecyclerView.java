@@ -17,11 +17,13 @@ import android.view.ViewParent;
 
 import com.github.jdsjlzx.interfaces.ILoadMoreFooter;
 import com.github.jdsjlzx.interfaces.IRefreshHeader;
+import com.github.jdsjlzx.interfaces.IRefreshResult;
 import com.github.jdsjlzx.interfaces.OnLoadMoreListener;
 import com.github.jdsjlzx.interfaces.OnNetWorkErrorListener;
 import com.github.jdsjlzx.interfaces.OnRefreshListener;
 import com.github.jdsjlzx.view.ArrowRefreshHeader;
 import com.github.jdsjlzx.view.LoadingFooter;
+import com.github.jdsjlzx.view.RefreshResultHeader;
 
 /**
  * @author lizhixian
@@ -40,6 +42,7 @@ public class LRecyclerView extends RecyclerView {
     protected LayoutManagerType layoutManagerType;
     private boolean mPullRefreshEnabled = true;
     private boolean mLoadMoreEnabled = true;
+    private boolean mShowRefreshResult = true; //是否显示下拉刷新失败或者没有数据的view
     private boolean mRefreshing = false;//是否正在下拉刷新
     private boolean mLoadingData = false;//是否正在加载数据
     private OnRefreshListener mRefreshListener;
@@ -48,8 +51,10 @@ public class LRecyclerView extends RecyclerView {
     private LScrollListener mLScrollListener;
     private IRefreshHeader mRefreshHeader;
     private ILoadMoreFooter mLoadMoreFooter;
+    private IRefreshResult mRefreshResult;
     private View mEmptyView;
     private View mFootView; //用来显示：正在加载中、数据已全部加载、加载失败
+    private View mRefreshResultView; //用来显示下拉刷新的结果：正在加载中、加载失败、没有数据
     private float mLastY = -1;
     private float sumOffSet;
     private int mPageSize = 10; //一次网络请求默认数量
@@ -122,7 +127,7 @@ public class LRecyclerView extends RecyclerView {
             setLoadMoreFooter(new LoadingFooter(getContext().getApplicationContext()));
         }
 
-
+        setRefreshResultHeaderView(new RefreshResultHeader(getContext().getApplicationContext()));
     }
 
     @Override
@@ -431,6 +436,23 @@ public class LRecyclerView extends RecyclerView {
             mFootView.setLayoutParams(new LayoutParams(layoutParams));
         } else {
             mFootView.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+        }
+    }
+
+    /**
+     * 设置自定义的footerview
+     */
+    public void setRefreshResultHeaderView(IRefreshResult refreshResult) {
+        this.mRefreshResult = refreshResult;
+        mRefreshResultView = refreshResult.getResultHeaderView();
+        mRefreshResultView.setVisibility(GONE);
+
+        //wxm:mFootView inflate的时候没有以RecyclerView为parent，所以要设置LayoutParams
+        ViewGroup.LayoutParams layoutParams = mRefreshResultView.getLayoutParams();
+        if (layoutParams != null) {
+            mRefreshResultView.setLayoutParams(new LayoutParams(layoutParams));
+        } else {
+            mRefreshResultView.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
         }
     }
 

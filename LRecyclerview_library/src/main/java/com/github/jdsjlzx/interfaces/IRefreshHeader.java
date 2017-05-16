@@ -2,6 +2,9 @@ package com.github.jdsjlzx.interfaces;
 
 import android.view.View;
 
+/**
+ * 下拉刷新头的接口类，如果要自定义下拉刷新头，要实现该接口
+ */
 public interface IRefreshHeader {
 
 	int STATE_NORMAL = 0;
