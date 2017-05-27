@@ -316,7 +316,7 @@ public class LRecyclerView extends RecyclerView {
     /**
      * @param pageSize 一页加载的数量
      */
-    public void refreshComplete(int pageSize) {
+    private void refreshComplete(int pageSize) {
         refreshComplete(pageSize, true);
     }
 
@@ -326,7 +326,7 @@ public class LRecyclerView extends RecyclerView {
      * @param pageSize 每一页的数据为多少项，不知道的话填0
      * @param noMore   该参数只对上拉加载更多有效，没有更多分页了就填true
      */
-    public void refreshComplete(int pageSize, boolean noMore) {
+    private void refreshComplete(int pageSize, boolean noMore) {
         refreshComplete(pageSize, noMore, true);
     }
 
@@ -704,14 +704,21 @@ public class LRecyclerView extends RecyclerView {
         mLScrollListener = listener;
     }
 
-    public void refresh() {
-        if (mRefreshHeader.getVisibleHeight() > 0 || mRefreshing) {// if RefreshHeader is Refreshing, return
+    /**
+     * 执行刷新操作
+     *
+     * @param refreshHeaderAnim 刷新头是否会有下拉的动画
+     */
+    public void refresh(boolean refreshHeaderAnim) {
+        if (mRefreshHeader.getVisibleHeight() > 0 || mRefreshing || mLoadingData) {// if RefreshHeader is Refreshing, return
             return;
         }
         if (mPullRefreshEnabled && mRefreshListener != null) {
-            mRefreshHeader.onRefreshing();
-            int offSet = mRefreshHeader.getHeaderView().getMeasuredHeight();
-            mRefreshHeader.onMove(offSet, offSet);
+            if (refreshHeaderAnim) {
+                mRefreshHeader.onRefreshing();
+                int offSet = mRefreshHeader.getHeaderView().getMeasuredHeight();
+                mRefreshHeader.onMove(offSet, offSet);
+            }
             mRefreshing = true;
 
             mFootView.setVisibility(GONE);
@@ -729,7 +736,7 @@ public class LRecyclerView extends RecyclerView {
         if (mLoadingData) {
             return;
         }
-        refresh();
+        refresh(true);
     }
 
     @Override
