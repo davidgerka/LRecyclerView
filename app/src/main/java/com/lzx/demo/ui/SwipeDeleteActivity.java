@@ -17,6 +17,7 @@ import com.github.jdsjlzx.recyclerview.LRecyclerView;
 import com.github.jdsjlzx.recyclerview.LRecyclerViewAdapter;
 import com.github.jdsjlzx.recyclerview.ProgressStyle;
 import com.github.jdsjlzx.util.RecyclerViewStateUtils;
+import com.github.jdsjlzx.util.RefreshLoadState;
 import com.github.jdsjlzx.view.LoadingFooter;
 import com.lzx.demo.R;
 import com.lzx.demo.adapter.SwipeMenuAdapter;
@@ -210,7 +211,7 @@ public class SwipeDeleteActivity extends AppCompatActivity{
     private View.OnClickListener mFooterClick = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
-            RecyclerViewStateUtils.setFooterViewState(SwipeDeleteActivity.this, mRecyclerView, REQUEST_COUNT, LoadingFooter.State.Loading, null);
+            RecyclerViewStateUtils.setFooterViewState(SwipeDeleteActivity.this, mRecyclerView, REQUEST_COUNT, RefreshLoadState.LOADING, null);
             requestData();
         }
     };

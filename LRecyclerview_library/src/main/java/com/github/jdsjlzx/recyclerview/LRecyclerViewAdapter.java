@@ -7,6 +7,7 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import com.github.jdsjlzx.interfaces.IRefreshHeader;
+import com.github.jdsjlzx.interfaces.IResultHeader;
 import com.github.jdsjlzx.interfaces.OnItemClickListener;
 import com.github.jdsjlzx.interfaces.OnItemLongClickListener;
 
@@ -15,18 +16,18 @@ import java.util.List;
 
 /**
  * RecyclerView.Adapter with Header and Footer
- * 
  */
 public class LRecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
+    public static final int TYPE_NORMAL = -1;
     private static final int TYPE_REFRESH_HEADER = 10000;
     private static final int HEADER_INIT_INDEX = 10001;
     private static final int TYPE_FOOTER_VIEW = 20000;
-    private static final int TYPE_NORMAL = -1;
-    private static List<Integer> mHeaderTypes = new ArrayList<>();
+    private List<Integer> mHeaderTypes = new ArrayList<>();
 
     private IRefreshHeader mRefreshHeader;
-
+    private IResultHeader mResultHeader;
+    private View resultHeaderView;
     private OnItemClickListener mOnItemClickListener;
     private OnItemLongClickListener mOnItemLongClickListener;
 
@@ -45,7 +46,7 @@ public class LRecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.View
         this.mInnerAdapter = innerAdapter;
     }
 
-    public void setRefreshHeader(IRefreshHeader refreshHeader){
+    public void setRefreshHeader(IRefreshHeader refreshHeader) {
         mRefreshHeader = refreshHeader;
     }
 
@@ -53,14 +54,66 @@ public class LRecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.View
         return mInnerAdapter;
     }
 
+    public void showResultHeaderView(boolean notify) {
+        if (resultHeaderView != null && !hasResultHeaderView()) {
+            mResultHeader = (IResultHeader) resultHeaderView;
+            mHeaderTypes.add(HEADER_INIT_INDEX + mHeaderViews.size());
+            mHeaderViews.add(resultHeaderView);
+        }
+        if (notify) {
+            this.notifyDataSetChanged();
+        }
+    }
+
+    public void hideResultHeaderView(boolean notify) {
+        if (hasResultHeaderView()) {
+            mResultHeader = null;
+            removeLastHeaderView(notify);
+        }
+    }
+
+    public void addResultHeaderView(View resultHeader, boolean show) {
+        if (resultHeader == null) {
+            throw new RuntimeException("header is null");
+        }
+        if (resultHeader instanceof IResultHeader) {
+            hideResultHeaderView(false);
+            resultHeaderView = resultHeader;
+            if (show) {
+                mResultHeader = (IResultHeader) resultHeader;
+                mHeaderTypes.add(HEADER_INIT_INDEX + mHeaderViews.size());
+                mHeaderViews.add(resultHeader);
+            }
+            this.notifyDataSetChanged();
+        } else {
+            throw new RuntimeException("header must implete IResultHeader");
+        }
+    }
+
     public void addHeaderView(View view) {
 
         if (view == null) {
             throw new RuntimeException("header is null");
         }
-
         mHeaderTypes.add(HEADER_INIT_INDEX + mHeaderViews.size());
-        mHeaderViews.add(view);
+        if (hasResultHeaderView()) {
+            mHeaderViews.add(mHeaderViews.size() - 1, view);
+        } else {
+            mHeaderViews.add(view);
+        }
+        this.notifyDataSetChanged();
+    }
+
+    /**
+     * 是否有ResultHeaderView
+     *
+     * @return
+     */
+    private boolean hasResultHeaderView() {
+        if (resultHeaderView != null && getLastHeaderView() != null && getLastHeaderView() instanceof IResultHeader) {
+            return true;
+        }
+        return false;
     }
 
     public void addFooterView(View view) {
@@ -69,17 +122,28 @@ public class LRecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.View
             throw new RuntimeException("footer is null");
         }
 
-        removeFooterView();
-        mFooterViews.add(view);
+        if (getFooterViewsCount() > 0) {
+            View footerView = getFooterView();
+            if (footerView != view) {
+                mFooterViews.remove(footerView);
+                mFooterViews.add(view);
+                this.notifyDataSetChanged();
+            }
+        } else {
+            mFooterViews.add(view);
+            this.notifyDataSetChanged();
+        }
+
     }
 
     /**
      * 根据header的ViewType判断是哪个header
+     *
      * @param itemType
      * @return
      */
     private View getHeaderViewByType(int itemType) {
-        if(!isHeaderType(itemType)) {
+        if (!isHeaderType(itemType)) {
             return null;
         }
         return mHeaderViews.get(itemType - HEADER_INIT_INDEX);
@@ -87,40 +151,63 @@ public class LRecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.View
 
     /**
      * 判断一个type是否为HeaderType
+     *
      * @param itemViewType
      * @return
      */
     private boolean isHeaderType(int itemViewType) {
-        return  mHeaderViews.size() > 0 &&  mHeaderTypes.contains(itemViewType);
+        return mHeaderViews.size() > 0 && mHeaderTypes.contains(itemViewType);
     }
 
     /**
      * 返回第一个FootView
+     *
      * @return
      */
     public View getFooterView() {
-        return  getFooterViewsCount()>0 ? mFooterViews.get(0) : null;
+        return getFooterViewsCount() > 0 ? mFooterViews.get(0) : null;
     }
 
     /**
      * 返回第一个HeaderView
+     *
      * @return
      */
     public View getHeaderView() {
-        return  getHeaderViewsCount()>0 ? mHeaderViews.get(0) : null;
+        return getHeaderViewsCount() > 0 ? mHeaderViews.get(0) : null;
+    }
+
+    /**
+     * 返回最后一个HeaderView
+     *
+     * @return
+     */
+    public View getLastHeaderView() {
+        return getHeaderViewsCount() > 0 ? mHeaderViews.get(getHeaderViewsCount() - 1) : null;
     }
 
     public ArrayList<View> getHeaderViews() {
         return mHeaderViews;
     }
 
-    public void removeHeaderView() {
-        if (getHeaderViewsCount() > 0) {
-            View headerView = getHeaderView();
-            mHeaderViews.remove(headerView);
-            this.notifyDataSetChanged();
-        }
+//    public void removeHeaderView() {
+//        if (getHeaderViewsCount() > 0) {
+//            View headerView = getHeaderView();
+//            mHeaderViews.remove(headerView);
+//            this.notifyDataSetChanged();
+//        }
+//    }
 
+    public void removeLastHeaderView(boolean notify) {
+        if (getHeaderViewsCount() > 0) {
+            if (mHeaderTypes.size() > 0) {
+                mHeaderTypes.remove(mHeaderTypes.size() - 1);
+            }
+            mHeaderViews.remove(getLastHeaderView());
+            if (notify) {
+                this.notifyDataSetChanged();
+            }
+        }
     }
 
     public void removeFooterView() {
@@ -179,10 +266,9 @@ public class LRecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.View
                 mInnerAdapter.onBindViewHolder(holder, adjPosition);
 
                 if (mOnItemClickListener != null) {
-                    holder.itemView.setOnClickListener(new View.OnClickListener()  {
+                    holder.itemView.setOnClickListener(new View.OnClickListener() {
                         @Override
-                        public void onClick(View v)
-                        {
+                        public void onClick(View v) {
                             mOnItemClickListener.onItemClick(holder.itemView, adjPosition);
                         }
                     });
@@ -192,8 +278,7 @@ public class LRecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.View
                 if (mOnItemLongClickListener != null) {
                     holder.itemView.setOnLongClickListener(new View.OnLongClickListener() {
                         @Override
-                        public boolean onLongClick(View v)
-                        {
+                        public boolean onLongClick(View v) {
                             mOnItemLongClickListener.onItemLongClick(holder.itemView, adjPosition);
                             return true;
                         }
@@ -207,7 +292,7 @@ public class LRecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.View
     @Override
     public void onBindViewHolder(final RecyclerView.ViewHolder holder, int position, List<Object> payloads) {
         if (payloads.isEmpty()) {
-            onBindViewHolder(holder,position);
+            onBindViewHolder(holder, position);
         } else {
 
             if (isHeader(position) || isRefreshHeader(position)) {
@@ -262,7 +347,7 @@ public class LRecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.View
         if (mInnerAdapter != null && position >= getHeaderViewsCount()) {
             int adjPosition = position - getHeaderViewsCount();
             //判断是否setHasStableIds(true);
-            if(hasStableIds()) {
+            if (hasStableIds()) {
                 adjPosition--;
             }
             int adapterCount = mInnerAdapter.getItemCount();
@@ -287,7 +372,7 @@ public class LRecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.View
                                 ? gridManager.getSpanCount() : 1;
                     } else {
                         return (isHeader(position) || isFooter(position) || isRefreshHeader(position))
-                                ? gridManager.getSpanCount() : mSpanSizeLookup.getSpanSize(gridManager,  (position - (getHeaderViewsCount() + 1)));
+                                ? gridManager.getSpanCount() : mSpanSizeLookup.getSpanSize(gridManager, (position - (getHeaderViewsCount() + 1)));
                     }
 
                 }
@@ -306,7 +391,7 @@ public class LRecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.View
         super.onViewAttachedToWindow(holder);
         ViewGroup.LayoutParams lp = holder.itemView.getLayoutParams();
         if (lp != null && lp instanceof StaggeredGridLayoutManager.LayoutParams) {
-            if(isHeader(holder.getLayoutPosition()) ||isRefreshHeader(holder.getLayoutPosition()) || isFooter(holder.getLayoutPosition())) {
+            if (isHeader(holder.getLayoutPosition()) || isRefreshHeader(holder.getLayoutPosition()) || isFooter(holder.getLayoutPosition())) {
                 StaggeredGridLayoutManager.LayoutParams p = (StaggeredGridLayoutManager.LayoutParams) lp;
                 p.setFullSpan(true);
             }
@@ -325,28 +410,20 @@ public class LRecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.View
         mInnerAdapter.onViewRecycled(holder);
     }
 
-
-    public static class ViewHolder extends RecyclerView.ViewHolder {
-        public ViewHolder(View itemView) {
-            super(itemView);
-        }
-    }
-
     /**
-     *
      * @param isCallback whether position is from callback interface
      * @param position
      * @return
      */
     public int getAdapterPosition(boolean isCallback, int position) {
-        if(isCallback) {
+        if (isCallback) {
             int adjPosition = position - (getHeaderViewsCount() + 1);
             int adapterCount = mInnerAdapter.getItemCount();
             if (adjPosition < adapterCount) {
                 return adjPosition;
             }
-        }else {
-            return  (position + getHeaderViewsCount()) + 1;
+        } else {
+            return (position + getHeaderViewsCount()) + 1;
         }
 
         return -1;
@@ -360,16 +437,21 @@ public class LRecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.View
         this.mOnItemLongClickListener = itemLongClickListener;
     }
 
+    /**
+     * @param spanSizeLookup only used to GridLayoutManager
+     */
+    public void setSpanSizeLookup(SpanSizeLookup spanSizeLookup) {
+        this.mSpanSizeLookup = spanSizeLookup;
+    }
+
     public interface SpanSizeLookup {
         int getSpanSize(GridLayoutManager gridLayoutManager, int position);
     }
 
-    /**
-     * @param spanSizeLookup
-     * only used to GridLayoutManager
-     */
-    public void setSpanSizeLookup(SpanSizeLookup spanSizeLookup) {
-        this.mSpanSizeLookup = spanSizeLookup;
+    public static class ViewHolder extends RecyclerView.ViewHolder {
+        public ViewHolder(View itemView) {
+            super(itemView);
+        }
     }
 
 }

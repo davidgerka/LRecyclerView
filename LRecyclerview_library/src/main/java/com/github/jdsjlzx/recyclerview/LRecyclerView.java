@@ -1,6 +1,8 @@
 package com.github.jdsjlzx.recyclerview;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.Message;
 import android.support.design.widget.AppBarLayout;
 import android.support.design.widget.CoordinatorLayout;
 import android.support.v4.content.ContextCompat;
@@ -17,13 +19,15 @@ import android.view.ViewParent;
 
 import com.github.jdsjlzx.interfaces.ILoadMoreFooter;
 import com.github.jdsjlzx.interfaces.IRefreshHeader;
-import com.github.jdsjlzx.interfaces.IRefreshResult;
+import com.github.jdsjlzx.interfaces.IResultHeader;
 import com.github.jdsjlzx.interfaces.OnLoadMoreListener;
 import com.github.jdsjlzx.interfaces.OnNetWorkErrorListener;
 import com.github.jdsjlzx.interfaces.OnRefreshListener;
 import com.github.jdsjlzx.view.ArrowRefreshHeader;
 import com.github.jdsjlzx.view.LoadingFooter;
-import com.github.jdsjlzx.view.RefreshResultHeader;
+import com.github.jdsjlzx.view.ResultHeader;
+
+import java.lang.ref.WeakReference;
 
 /**
  * @author lizhixian
@@ -35,6 +39,9 @@ public class LRecyclerView extends RecyclerView {
      * 触发在上下滑动监听器的容差距离
      */
     private static final int HIDE_THRESHOLD = 20;
+    private static final int MSG_LOADMORE = 1;
+    private static final long ATTACH_GAP_TIME = 500;    //时间间隔，防止连续不断的执行加载
+    private static final long SENDMSG_DELAY_TIME = 100;    //执行加载的延迟时间
     private final RecyclerView.AdapterDataObserver mDataObserver = new DataObserver();
     /**
      * 当前RecyclerView类型
@@ -42,29 +49,31 @@ public class LRecyclerView extends RecyclerView {
     protected LayoutManagerType layoutManagerType;
     private boolean mPullRefreshEnabled = true;
     private boolean mLoadMoreEnabled = true;
-    private boolean mShowRefreshResult = true; //是否显示下拉刷新失败或者没有数据的view
     private boolean mRefreshing = false;//是否正在下拉刷新
     private boolean mLoadingData = false;//是否正在加载数据
+    private boolean mShowResultHeader = true; //是否显示获取数据失败或者没有数据的view
+    private boolean mShowNoMore = false;  //是否要显示"数据已全部加载"
     private OnRefreshListener mRefreshListener;
     private OnLoadMoreListener mLoadMoreListener;
     private OnNetWorkErrorListener mNetWorkErrorListener;
     private LScrollListener mLScrollListener;
     private IRefreshHeader mRefreshHeader;
     private ILoadMoreFooter mLoadMoreFooter;
-    private IRefreshResult mRefreshResult;
+    private IResultHeader mResultHeader;
     private View mEmptyView;
     private View mFootView; //用来显示：正在加载中、数据已全部加载、加载失败
-    private View mRefreshResultView; //用来显示下拉刷新的结果：正在加载中、加载失败、没有数据
+    private View mResultHeaderView; //用来显示下拉刷新的结果：正在加载中、加载失败、没有数据
     private float mLastY = -1;
     private float sumOffSet;
     private int mPageSize = 10; //一次网络请求默认数量
     private LRecyclerViewAdapter mWrapAdapter;
     private boolean isNoMore = false;    //没有更多数据
-    private boolean showNoMore = false;  //是否要显示"数据已全部加载"
     private boolean hasShowFooterView = false;   //是否已经显示了footerVeiw
+    private boolean suc = true;    //获取数据是否成功
     private boolean mIsVpDragger;
     private int mTouchSlop;
     private float startY;
+    private WeakHandler mWeakHander = new WeakHandler(this);
     //scroll variables begin
     private float startX;
     private boolean isRegisterDataObserver;
@@ -84,25 +93,48 @@ public class LRecyclerView extends RecyclerView {
      * 滑动的距离
      */
     private int mDistance = 0;
-
     /**
      * 是否需要监听控制
      */
     private boolean mIsScrollDown = true;
-
     /**
      * Y轴移动的实际距离（最顶部为0）
      */
     private int mScrolledYDistance = 0;
-
     /**
      * X轴移动的实际距离（最左侧为0）
      */
     private int mScrolledXDistance = 0;
+    private boolean attachViewForLoadMoreEnable = false;   //首次必须为false
+    private long lastDetachTime = 0;
     //scroll variables end
+    private OnChildAttachStateChangeListener mOnChildAttachStateChangeListener = new OnChildAttachStateChangeListener() {
+        @Override
+        public void onChildViewAttachedToWindow(View view) {
+            if (view instanceof ILoadMoreFooter) {
+                if (attachViewForLoadMoreEnable) {
+                    long nowTime = System.currentTimeMillis();
+                    //suc为true时：上一次获取数据成功继续执行，因为考虑到加载数据后还会继续加载更多数据，直到loadmoreview不显示为止
+                    //suc为false时，要求nowTime - lastDetachTime > ATTACH_GAP_TIME才能执行，因为考虑到获取失败了，会继续显示loadmoreview，进入这个回调方法，如果没时间判断，就会不停的执行了
+                    if (mLoadMoreListener != null && mLoadMoreEnabled && !isNoMore && !mRefreshing && !mLoadingData && (suc || nowTime - lastDetachTime > ATTACH_GAP_TIME)) {
+                        lastDetachTime = nowTime;
+                        //延迟100毫秒执行，解决这个bug：java.lang.IllegalStateException: Cannot call this method while RecyclerView is computing a layout or scrolling(RecyclerView.java:2575)
+                        mWeakHander.removeMessages(MSG_LOADMORE);
+                        mWeakHander.sendEmptyMessageDelayed(MSG_LOADMORE, SENDMSG_DELAY_TIME);
+                    }
+                } else {
+                    attachViewForLoadMoreEnable = true;
+                }
+            }
+        }
 
-
+        @Override
+        public void onChildViewDetachedFromWindow(View view) {
+            lastDetachTime = System.currentTimeMillis();
+        }
+    };
     private AppBarStateChangeListener.State appbarState = AppBarStateChangeListener.State.EXPANDED;
+
 
     public LRecyclerView(Context context) {
         this(context, null);
@@ -127,7 +159,8 @@ public class LRecyclerView extends RecyclerView {
             setLoadMoreFooter(new LoadingFooter(getContext().getApplicationContext()));
         }
 
-        setRefreshResultHeaderView(new RefreshResultHeader(getContext().getApplicationContext()));
+        setResultHeaderView(new ResultHeader(getContext().getApplicationContext()));
+
     }
 
     @Override
@@ -151,6 +184,11 @@ public class LRecyclerView extends RecyclerView {
             hasShowFooterView = true;
         }
 
+        if (mShowResultHeader) {
+            mWrapAdapter.addResultHeaderView(mResultHeaderView, false);
+        }
+
+        ensureAttachStateListener();
     }
 
     @Override
@@ -161,7 +199,6 @@ public class LRecyclerView extends RecyclerView {
             mWrapAdapter.getInnerAdapter().unregisterAdapterDataObserver(mDataObserver);
             isRegisterDataObserver = false;
         }
-
     }
 
     /**
@@ -241,7 +278,9 @@ public class LRecyclerView extends RecyclerView {
                             mRefreshing = true;
                             mFootView.setVisibility(GONE);
                             mRefreshListener.onRefresh();
-
+                            if (mResultHeader != null) {
+                                mResultHeader.onLoading();
+                            }
                         }
                     }
                 }
@@ -278,22 +317,7 @@ public class LRecyclerView extends RecyclerView {
      * @param pageSize 一页加载的数量
      */
     public void refreshComplete(int pageSize) {
-        this.mPageSize = pageSize;
-        if (mRefreshing) {
-            isNoMore = false;
-            mRefreshing = false;
-            mRefreshHeader.refreshComplete();
-
-            if (mWrapAdapter.getInnerAdapter().getItemCount() < pageSize) {
-                mFootView.setVisibility(GONE);
-                setShowFooterView(false);
-            } else {
-                setShowFooterView(true);
-            }
-        } else if (mLoadingData) {
-            mLoadingData = false;
-            mLoadMoreFooter.onComplete();
-        }
+        refreshComplete(pageSize, true);
     }
 
     /**
@@ -303,63 +327,70 @@ public class LRecyclerView extends RecyclerView {
      * @param noMore   该参数只对上拉加载更多有效，没有更多分页了就填true
      */
     public void refreshComplete(int pageSize, boolean noMore) {
-        this.mPageSize = pageSize;
-        if (mRefreshing) {
-            mRefreshing = false;
-            mRefreshHeader.refreshComplete();
-            int itemCount = mWrapAdapter.getInnerAdapter().getItemCount();
-            if(itemCount == 0){     //没有数据
-                setNoMore(true);
-                setShowFooterView(false);
-            }else if(itemCount < pageSize) {    //item不够一页的数目
-                setNoMore(true);
-                setShowFooterView(showNoMore);
-            }else {
-                setNoMore(false);
-                setShowFooterView(true);
-            }
-        } else if (mLoadingData) {
-            setNoMore(noMore);
-            if (noMore) { //没有更多数据
-                setShowFooterView(showNoMore);
-            } else { //还有数据
-                setShowFooterView(true);
-            }
-        }
+        refreshComplete(pageSize, noMore, true);
     }
 
     /**
      * 下拉刷新/上拉加载完成之后都要调用该方法
      *
      * @param pageSize 每一页的数据为多少项，不知道的话填0
-     * @param noMore   该参数只对上拉加载更多有效，没有更多分页了就填true
+     * @param noMore   该参数只对上拉加载更多有效，没有更多分页了就填true，加载失败了填false
+     * @param suc      下拉刷新/上拉加载是否成功
      */
     public void refreshComplete(int pageSize, boolean noMore, boolean suc) {
+        this.suc = suc;
         this.mPageSize = pageSize;
         if (mRefreshing) {
             mRefreshing = false;
             mRefreshHeader.refreshComplete();
             int itemCount = mWrapAdapter.getInnerAdapter().getItemCount();
-            if(itemCount == 0){     //没有数据
+            if (itemCount == 0) {     //没有数据
                 setNoMore(true);
-                setShowFooterView(false);
-            }else if(itemCount < pageSize) {    //item不够一页的数目
+                setShowFooterView(false, true);
+            } else if (itemCount < pageSize) {    //item不够一页的数目
                 setNoMore(true);
-                setShowFooterView(showNoMore);
-            }else {
+                setShowFooterView(mShowNoMore, true);
+            } else {
                 setNoMore(false);
-                setShowFooterView(true);
+                setShowFooterView(true, true);
             }
+            showResultHeader(itemCount, suc);
         } else if (mLoadingData) {
             setNoMore(noMore);
             if (noMore) { //没有更多数据
-                setShowFooterView(showNoMore);
+                setShowFooterView(mShowNoMore, suc);
             } else { //还有数据
-                setShowFooterView(true);
+                setShowFooterView(true, suc);
             }
         }
     }
 
+    /**
+     * 显示头部结果view
+     *
+     * @param itemCount
+     * @param suc
+     */
+    private void showResultHeader(int itemCount, boolean suc) {
+        if (mWrapAdapter == null) {
+            return;
+        }
+        if (mShowResultHeader && (itemCount == 0 || !suc)) {
+            mWrapAdapter.showResultHeaderView(true);
+            if (mResultHeader != null) {
+                if (!suc) {
+                    mResultHeader.onNetWorkError();
+                } else if (itemCount == 0) {
+                    mResultHeader.onNoData();
+                }
+            }
+        } else {
+            mWrapAdapter.hideResultHeaderView(true);
+            if (mResultHeader != null) {
+                mResultHeader.onReset();
+            }
+        }
+    }
 
     /**
      * 设置是否要显示"数据已全部加载"view
@@ -367,7 +398,7 @@ public class LRecyclerView extends RecyclerView {
      * @param show
      */
     public void setShowNoMore(boolean show) {
-        showNoMore = show;
+        mShowNoMore = show;
     }
 
     /**
@@ -390,12 +421,15 @@ public class LRecyclerView extends RecyclerView {
      *
      * @param show
      */
-    private void setShowFooterView(boolean show) {
+    private void setShowFooterView(boolean show, boolean suc) {
         if (!mLoadMoreEnabled || mWrapAdapter == null) {
             return;
         }
-        if (show) {
+        if (show || !suc) {
             mFootView.setVisibility(VISIBLE);
+            if (!suc && mLoadMoreFooter != null) {
+                mLoadMoreFooter.onNetWorkError();
+            }
             if (hasShowFooterView) {
                 return;
             }
@@ -437,23 +471,39 @@ public class LRecyclerView extends RecyclerView {
         } else {
             mFootView.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
         }
+
+        setOnNetWorkErrorListener(mNetWorkErrorListener);
     }
 
     /**
      * 设置自定义的footerview
      */
-    public void setRefreshResultHeaderView(IRefreshResult refreshResult) {
-        this.mRefreshResult = refreshResult;
-        mRefreshResultView = refreshResult.getResultHeaderView();
-        mRefreshResultView.setVisibility(GONE);
+    public void setResultHeaderView(IResultHeader resultHeader) {
+        setResultHeaderView(resultHeader, true);
+    }
+
+    private void setResultHeaderView(IResultHeader resultHeader, boolean show) {
+        setShowResultHeader(show);
+        this.mResultHeader = resultHeader;
+        mResultHeaderView = resultHeader.getResultHeaderView();
 
         //wxm:mFootView inflate的时候没有以RecyclerView为parent，所以要设置LayoutParams
-        ViewGroup.LayoutParams layoutParams = mRefreshResultView.getLayoutParams();
+        ViewGroup.LayoutParams layoutParams = mResultHeaderView.getLayoutParams();
         if (layoutParams != null) {
-            mRefreshResultView.setLayoutParams(new LayoutParams(layoutParams));
+            mResultHeaderView.setLayoutParams(new LayoutParams(layoutParams));
         } else {
-            mRefreshResultView.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+            mResultHeaderView.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
         }
+        setOnReloadListener();
+    }
+
+    /**
+     * 设置是否显示获取数据的结果view
+     *
+     * @param show
+     */
+    public void setShowResultHeader(boolean show) {
+        mShowResultHeader = show;
     }
 
     public void setPullRefreshEnabled(boolean enabled) {
@@ -492,6 +542,7 @@ public class LRecyclerView extends RecyclerView {
 
     /**
      * 设置LoadMoreFooter加载中的进度条样式，只对默认的LoadingFooter有效，如果是自己定义的LoadMoreFooter，自己在view里面实现
+     *
      * @param style
      */
     public void setLoadingMoreProgressStyle(int style) {
@@ -509,15 +560,53 @@ public class LRecyclerView extends RecyclerView {
         mLoadMoreListener = listener;
     }
 
+    /**
+     * 设置点击底部加载失败时的回调，内部已经实现了点击就执行加载更多的操作，如果用户想自己处理就设置监听器吧
+     *
+     * @param listener
+     */
     public void setOnNetWorkErrorListener(final OnNetWorkErrorListener listener) {
         mNetWorkErrorListener = listener;
-        if(mLoadMoreFooter != null && mFootView != null){
+        if (mLoadMoreFooter != null && mFootView != null) {
             mLoadMoreFooter.onNetWorkError();
             mFootView.setOnClickListener(new OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    mLoadMoreFooter.onLoading();
-                    mNetWorkErrorListener.reload();
+                    if (!mLoadMoreEnabled || isNoMore || mRefreshing || mLoadingData) {
+                        return;
+                    }
+                    if (mNetWorkErrorListener != null) {
+                        mLoadMoreFooter.onLoading();
+                        mNetWorkErrorListener.reload();
+                    } else {
+                        ensureExecuteLoadMore();
+                    }
+                }
+            });
+        }
+    }
+
+    /**
+     * 设置重新加载数据的监听器
+     */
+    private void setOnReloadListener() {
+        if (mResultHeader != null && mResultHeaderView != null) {
+            mResultHeader.onReset();
+            mResultHeader.setRefreshListener(new OnRefreshListener() {
+                @Override
+                public void onRefresh() {
+                    if (mRefreshHeader.getVisibleHeight() > 0 || mRefreshing || mRefreshListener == null) {// if RefreshHeader is Refreshing, return
+                        return;
+                    }
+                    if (mPullRefreshEnabled) {
+                        mRefreshHeader.onRefreshing();
+                        int offSet = mRefreshHeader.getHeaderView().getMeasuredHeight();
+                        mRefreshHeader.onMove(offSet, offSet);
+                    }
+                    mRefreshing = true;
+                    mFootView.setVisibility(GONE);
+                    mRefreshListener.onRefresh();
+                    mResultHeader.onLoading();
                 }
             });
         }
@@ -525,6 +614,7 @@ public class LRecyclerView extends RecyclerView {
 
     /**
      * 设置LoadMoreFooter各个状态的提示语，只对默认的LoadingFooter有效，如果是自己定义的LoadMoreFooter，自己在view里面实现
+     *
      * @param loading
      * @param noMore
      * @param noNetWork
@@ -571,6 +661,45 @@ public class LRecyclerView extends RecyclerView {
 
     }
 
+    /**
+     * 设置ResultHeaderView各个状态的提示语，只对默认的ResultHeaderView有效，如果是自己定义的ResultHeaderView，自己在view里面实现
+     *
+     * @param loading
+     * @param noData
+     * @param noNetWork
+     */
+    public void setResultHeaderViewHint(String loading, String noData, String noNetWork) {
+        if (mResultHeader != null && mResultHeader instanceof ResultHeader) {
+            ResultHeader resultHeader = ((ResultHeader) mResultHeader);
+            resultHeader.setLoadingHint(loading);
+            resultHeader.setNoDataHint(noData);
+            resultHeader.setNoNetWorkHint(noNetWork);
+        }
+    }
+
+    /**
+     * 设置ResultHeaderView文字颜色，只对默认的ResultHeaderView有效，如果是自己定义的ResultHeaderView，自己在view里面实现
+     *
+     * @param loadingColor
+     * @param noDataColor
+     * @param noNetWorkColor
+     */
+    public void setResultHeaderViewColor(int loadingColor, int noDataColor, int noNetWorkColor) {
+        if (mResultHeader != null && mResultHeader instanceof ResultHeader) {
+            ResultHeader resultHeader = ((ResultHeader) mResultHeader);
+            resultHeader.setLoadingColor(loadingColor);
+            resultHeader.setNodataColor(noDataColor);
+            resultHeader.setNoNetWorkColor(noNetWorkColor);
+        }
+    }
+
+    public void setResultHeaderViewBgColor(int bgColor) {
+        if (mResultHeader != null && mResultHeader instanceof ResultHeader) {
+            ResultHeader resultHeader = ((ResultHeader) mResultHeader);
+            resultHeader.setViewBackgroundColor(bgColor);
+        }
+    }
+
     public void setLScrollListener(LScrollListener listener) {
         mLScrollListener = listener;
     }
@@ -587,9 +716,15 @@ public class LRecyclerView extends RecyclerView {
 
             mFootView.setVisibility(GONE);
             mRefreshListener.onRefresh();
+            if (mResultHeader != null) {
+                mResultHeader.onLoading();
+            }
         }
     }
 
+    /**
+     * 执行刷新操作，刷新头会执行下拉的动画
+     */
     public void forceToRefresh() {
         if (mLoadingData) {
             return;
@@ -675,16 +810,7 @@ public class LRecyclerView extends RecyclerView {
                         && totalItemCount > visibleItemCount
                         && !isNoMore
                         && !mRefreshing) {
-
-                    mFootView.setVisibility(View.VISIBLE);
-                    if (mLoadingData) {
-                        return;
-                    } else {
-                        mLoadingData = true;
-                        mLoadMoreFooter.onLoading();
-                        mLoadMoreListener.onLoadMore();
-                    }
-
+                    executeLoadMore();
                 }
 
             }
@@ -753,6 +879,39 @@ public class LRecyclerView extends RecyclerView {
         }
     }
 
+    private void ensureAttachStateListener() {
+        if (mWrapAdapter == null || mWrapAdapter.getInnerAdapter() == null) {
+            return;
+        }
+
+        removeOnChildAttachStateChangeListener(mOnChildAttachStateChangeListener);
+
+        addOnChildAttachStateChangeListener(mOnChildAttachStateChangeListener);
+    }
+
+    /**
+     * 判断条件，执行加载更多操作
+     */
+    private void ensureExecuteLoadMore() {
+        if (mLoadMoreListener != null && mLoadMoreEnabled && !isNoMore && !mRefreshing) {
+            executeLoadMore();
+        }
+    }
+
+    /**
+     * 执行loadMore操作
+     */
+    private void executeLoadMore() {
+        mFootView.setVisibility(View.VISIBLE);
+        if (mLoadingData) {
+            return;
+        } else {
+            mLoadingData = true;
+            mLoadMoreFooter.onLoading();
+            mLoadMoreListener.onLoadMore();
+        }
+    }
+
     public enum LayoutManagerType {
         LinearLayout,
         StaggeredGridLayout,
@@ -768,6 +927,25 @@ public class LRecyclerView extends RecyclerView {
         void onScrolled(int distanceX, int distanceY);// moving state,you can get the move distance
 
         void onScrollStateChanged(int state);
+    }
+
+    private class WeakHandler extends Handler {
+        WeakReference<LRecyclerView> weakReference;
+
+        WeakHandler(LRecyclerView recyclerView) {
+            weakReference = new WeakReference<>(recyclerView);
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            if (weakReference == null || weakReference.get() == null) {
+                return;
+            }
+            LRecyclerView lRecyclerView = weakReference.get();
+            if (msg.what == MSG_LOADMORE) {
+                lRecyclerView.ensureExecuteLoadMore();
+            }
+        }
     }
 
     private class DataObserver extends RecyclerView.AdapterDataObserver {
@@ -825,10 +1003,10 @@ public class LRecyclerView extends RecyclerView {
 //                mFootView.setVisibility(GONE);
 //            }
 
-            if (mWrapAdapter.getInnerAdapter().getItemCount() == 0) {     //少于1页的数据
+            if (mWrapAdapter.getInnerAdapter().getItemCount() == 0) {     //少于1项的数据
                 setNoMore(true);
-                setShowFooterView(false);
-            }else if (mWrapAdapter.getInnerAdapter().getItemCount() < mPageSize) {     //少于1页的数据
+                setShowFooterView(false, true);
+            } else if (mWrapAdapter.getInnerAdapter().getItemCount() < mPageSize) {     //少于1页的数据
                 setNoMore(true);
             }
         }
@@ -840,5 +1018,4 @@ public class LRecyclerView extends RecyclerView {
         }
 
     }
-
 }

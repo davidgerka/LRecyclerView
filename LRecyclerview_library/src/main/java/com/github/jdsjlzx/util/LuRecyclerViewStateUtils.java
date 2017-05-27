@@ -11,6 +11,7 @@ import com.github.jdsjlzx.view.LoadingFooter;
 /**
  * 分页展示数据时，RecyclerView的FooterView State 操作工具类
  * RecyclerView一共有几种State：Normal/Loading/Error/TheEnd
+ *
  * @author lizhixian
  * @time 16/9/10 09:56
  */
@@ -26,7 +27,7 @@ public class LuRecyclerViewStateUtils {
      * @param state         FooterView State
      * @param errorListener FooterView处于Error状态时的点击事件
      */
-    public static void setFooterViewState(Activity instance, RecyclerView recyclerView, int pageSize, LoadingFooter.State state, View.OnClickListener errorListener) {
+    public static void setFooterViewState(Activity instance, RecyclerView recyclerView, int pageSize, int state, View.OnClickListener errorListener) {
         if (instance == null || instance.isFinishing()) {
             return;
         }
@@ -50,7 +51,7 @@ public class LuRecyclerViewStateUtils {
             footerView = (LoadingFooter) luRecyclerViewAdapter.getFooterView();
             footerView.setState(state);
             footerView.setVisibility(View.VISIBLE);
-            if (state == LoadingFooter.State.NetWorkError) {
+            if (state == RefreshLoadState.NETWORKERROR) {
                 footerView.setOnClickListener(errorListener);
             }
 
@@ -67,7 +68,7 @@ public class LuRecyclerViewStateUtils {
      * @param state         FooterView State
      * @param errorListener FooterView处于Error状态时的点击事件
      */
-    public static void setFooterViewState(Fragment instance, RecyclerView recyclerView, int pageSize, LoadingFooter.State state, View.OnClickListener errorListener) {
+    public static void setFooterViewState(Fragment instance, RecyclerView recyclerView, int pageSize, int state, View.OnClickListener errorListener) {
 
         if (instance == null || instance.isDetached()) {
             return;
@@ -92,7 +93,7 @@ public class LuRecyclerViewStateUtils {
             footerView = (LoadingFooter) luRecyclerViewAdapter.getFooterView();
             footerView.setState(state);
             footerView.setVisibility(View.VISIBLE);
-            if (state == LoadingFooter.State.NetWorkError) {
+            if (state == RefreshLoadState.NETWORKERROR) {
                 footerView.setOnClickListener(errorListener);
             }
 
@@ -105,7 +106,7 @@ public class LuRecyclerViewStateUtils {
      *
      * @param recyclerView
      */
-    public static LoadingFooter.State getFooterViewState(RecyclerView recyclerView) {
+    public static int getFooterViewState(RecyclerView recyclerView) {
 
         RecyclerView.Adapter outerAdapter = recyclerView.getAdapter();
         if (outerAdapter != null && outerAdapter instanceof LuRecyclerViewAdapter) {
@@ -115,7 +116,7 @@ public class LuRecyclerViewStateUtils {
             }
         }
 
-        return LoadingFooter.State.Normal;
+        return RefreshLoadState.NORMAL;
     }
 
     /**
@@ -124,7 +125,7 @@ public class LuRecyclerViewStateUtils {
      * @param recyclerView
      * @param state
      */
-    public static void setFooterViewState(RecyclerView recyclerView, LoadingFooter.State state) {
+    public static void setFooterViewState(RecyclerView recyclerView, int state) {
         RecyclerView.Adapter outerAdapter = recyclerView.getAdapter();
         if (outerAdapter != null && outerAdapter instanceof LuRecyclerViewAdapter) {
             if (((LuRecyclerViewAdapter) outerAdapter).getFooterViewsCount() > 0) {

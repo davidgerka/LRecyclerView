@@ -35,8 +35,4 @@ public interface ILoadMoreFooter {
      * 加载更多的View
      */
     View getFootView();
-
-    public enum State {
-        Normal/**正常*/, NoMore/**加载到最底了*/, Loading/**加载中..*/, NetWorkError/**网络异常*/
-    }
 }

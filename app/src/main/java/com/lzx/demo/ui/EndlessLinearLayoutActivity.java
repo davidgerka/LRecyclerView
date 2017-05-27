@@ -71,7 +71,7 @@ public class EndlessLinearLayoutActivity extends AppCompatActivity{
         DividerDecoration divider = new DividerDecoration.Builder(this)
                 .setHeight(R.dimen.default_divider_height)
                 .setPadding(R.dimen.default_divider_padding)
-                .setColorResource(R.color.split)
+//                .setColorResource(R.color.split)
                 .build();
 
         //mRecyclerView.setHasFixedSize(true);
@@ -82,11 +82,12 @@ public class EndlessLinearLayoutActivity extends AppCompatActivity{
         mRecyclerView.setRefreshProgressStyle(ProgressStyle.LineSpinFadeLoader);
         mRecyclerView.setArrowImageView(R.drawable.ic_pulltorefresh_arrow);
         mRecyclerView.setLoadingMoreProgressStyle(ProgressStyle.BallSpinFadeLoader);
-        mRecyclerView.setShowNoMore(true);
+        mRecyclerView.setShowResultHeader(true);
+        mRecyclerView.setShowNoMore(false);
         //add a HeaderView
         final View header = LayoutInflater.from(this).inflate(R.layout.sample_header,(ViewGroup)findViewById(android.R.id.content), false);
         final View empty = LayoutInflater.from(this).inflate(R.layout.sample_empty_item,(ViewGroup)findViewById(android.R.id.content), false);
-        mLRecyclerViewAdapter.addHeaderView(header);
+//        mLRecyclerViewAdapter.addHeaderView(header);
 
         mRecyclerView.setOnRefreshListener(new OnRefreshListener() {
             @Override
@@ -186,7 +187,10 @@ public class EndlessLinearLayoutActivity extends AppCompatActivity{
 
     }
 
-
+    private void addHeaderView(){
+        final View header = LayoutInflater.from(this).inflate(R.layout.sample_header,(ViewGroup)findViewById(android.R.id.content), false);
+        mLRecyclerViewAdapter.addHeaderView(header);
+    }
 
 
     private class PreviewHandler extends Handler {
@@ -221,12 +225,19 @@ public class EndlessLinearLayoutActivity extends AppCompatActivity{
                         newList.add(item);
                     }
 
+
+                    mRecyclerView.setAdapter(mLRecyclerViewAdapter);
                     activity.setItems(newList);
 
-                    activity.mRecyclerView.refreshComplete(REQUEST_COUNT, false);
-                    if(--kaka < 0){
-                        kaka = SUM;
+                    if(kaka == 2){
+                        activity.mRecyclerView.refreshComplete(REQUEST_COUNT, false, false);
+                    }else {
+                        activity.mRecyclerView.refreshComplete(REQUEST_COUNT, false, true);
                     }
+//                    if(--kaka < 0){
+//                        kaka = SUM;
+//                    }
+//                    addHeaderView();
                 }
                     break;
                 case -2:    //加载更多
@@ -247,18 +258,23 @@ public class EndlessLinearLayoutActivity extends AppCompatActivity{
                     }
 
                     activity.addItems(newList);
-                    activity.mRecyclerView.refreshComplete(REQUEST_COUNT, true);
+                    activity.mRecyclerView.refreshComplete(REQUEST_COUNT, true, true);
                     break;
                 case -3:
-                    activity.mRecyclerView.refreshComplete(REQUEST_COUNT, false);
+                    activity.mRecyclerView.refreshComplete(REQUEST_COUNT, false, false);
+                    activity.notifyDataSetChanged();
+//                    addHeaderView();
+
+                    break;
+                case -4:
+                    activity.mRecyclerView.refreshComplete(REQUEST_COUNT, false, false);
                     activity.notifyDataSetChanged();
                     activity.mRecyclerView.setOnNetWorkErrorListener(new OnNetWorkErrorListener() {
                         @Override
                         public void reload() {
-                            requestData();
+                            requestLoadMoreData();
                         }
                     });
-
                     break;
                 default:
                     break;

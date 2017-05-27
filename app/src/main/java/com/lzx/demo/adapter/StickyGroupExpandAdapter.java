@@ -14,7 +14,6 @@ import com.lzx.demo.R;
 
 /**
  * StickyGroupView的适配器，分组显示，可展开/收起
- * Created by lqn on 2017/4/26
  */
 public class StickyGroupExpandAdapter extends ExpandableRecyclerAdapter<BaseModelInfo> {
     private LRecyclerView recyclerView;

@@ -12,6 +12,7 @@ import com.github.jdsjlzx.view.LoadingFooter;
 /**
  * 分页展示数据时，RecyclerView的FooterView State 操作工具类
  * RecyclerView一共有几种State：Normal/Loading/Error/TheEnd
+ *
  * @author lizhixian
  * @time 16/9/10 09:56
  */
@@ -27,7 +28,7 @@ public class RecyclerViewStateUtils {
      * @param state         FooterView State
      * @param errorListener FooterView处于Error状态时的点击事件
      */
-    public static void setFooterViewState(Activity instance, RecyclerView recyclerView, int pageSize, LoadingFooter.State state, View.OnClickListener errorListener) {
+    public static void setFooterViewState(Activity instance, RecyclerView recyclerView, int pageSize, int state, View.OnClickListener errorListener) {
         if (instance == null || instance.isFinishing()) {
             return;
         }
@@ -48,14 +49,14 @@ public class RecyclerViewStateUtils {
         LoadingFooter footerView;
         //已经有footerView了
         if (lRecyclerViewAdapter.getFooterViewsCount() > 0) {
-            footerView = (LoadingFooter)lRecyclerViewAdapter.getFooterView();
+            footerView = (LoadingFooter) lRecyclerViewAdapter.getFooterView();
             footerView.setState(state);
             footerView.setVisibility(View.VISIBLE);
 
-            if (state == LoadingFooter.State.NetWorkError) {
+            if (state == RefreshLoadState.NETWORKERROR) {
                 footerView.setOnClickListener(errorListener);
-            } else if (state == LoadingFooter.State.NoMore){
-                ((LRecyclerView)recyclerView).setNoMore(true);
+            } else if (state == RefreshLoadState.NOMORE) {
+                ((LRecyclerView) recyclerView).setNoMore(true);
             }
 
         }
@@ -72,7 +73,7 @@ public class RecyclerViewStateUtils {
      * @param state         FooterView State
      * @param errorListener FooterView处于Error状态时的点击事件
      */
-    public static void setFooterViewState(Fragment instance, RecyclerView recyclerView, int pageSize, LoadingFooter.State state, View.OnClickListener errorListener) {
+    public static void setFooterViewState(Fragment instance, RecyclerView recyclerView, int pageSize, int state, View.OnClickListener errorListener) {
         if (instance == null || instance.isDetached()) {
             return;
         }
@@ -93,14 +94,14 @@ public class RecyclerViewStateUtils {
         LoadingFooter footerView;
         //已经有footerView了
         if (lRecyclerViewAdapter.getFooterViewsCount() > 0) {
-            footerView = (LoadingFooter)lRecyclerViewAdapter.getFooterView();
+            footerView = (LoadingFooter) lRecyclerViewAdapter.getFooterView();
             footerView.setState(state);
             footerView.setVisibility(View.VISIBLE);
 
-            if (state == LoadingFooter.State.NetWorkError) {
+            if (state == RefreshLoadState.NETWORKERROR) {
                 footerView.setOnClickListener(errorListener);
-            } else if (state == LoadingFooter.State.NoMore){
-                ((LRecyclerView)recyclerView).setNoMore(true);
+            } else if (state == RefreshLoadState.NOMORE) {
+                ((LRecyclerView) recyclerView).setNoMore(true);
             }
 
         }
@@ -113,7 +114,7 @@ public class RecyclerViewStateUtils {
      *
      * @param recyclerView
      */
-    public static LoadingFooter.State getFooterViewState(RecyclerView recyclerView) {
+    public static int getFooterViewState(RecyclerView recyclerView) {
 
         RecyclerView.Adapter outerAdapter = recyclerView.getAdapter();
         if (outerAdapter != null && outerAdapter instanceof LRecyclerViewAdapter) {
@@ -123,7 +124,7 @@ public class RecyclerViewStateUtils {
             }
         }
 
-        return LoadingFooter.State.Normal;
+        return RefreshLoadState.NORMAL;
     }
 
     /**
@@ -132,7 +133,7 @@ public class RecyclerViewStateUtils {
      * @param recyclerView
      * @param state
      */
-    public static void setFooterViewState(RecyclerView recyclerView, LoadingFooter.State state) {
+    public static void setFooterViewState(RecyclerView recyclerView, int state) {
         RecyclerView.Adapter outerAdapter = recyclerView.getAdapter();
         if (outerAdapter != null && outerAdapter instanceof LRecyclerViewAdapter) {
             if (((LRecyclerViewAdapter) outerAdapter).getFooterViewsCount() > 0) {

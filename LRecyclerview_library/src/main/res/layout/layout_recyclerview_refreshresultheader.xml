@@ -2,7 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="fill_parent"
     android:layout_height="@dimen/dp_40"
-    android:background="#00FFFFFF"
+    android:background="#00ffffff"
     android:gravity="center"
     android:orientation="horizontal"
     android:padding="4dp">
@@ -14,7 +14,7 @@
         android:layout_height="wrap_content"
         android:maxLines="1"
         android:ellipsize="end"
-        android:text="The Header"
+        android:text=""
         android:textColor="@color/refreshresult"
         android:textSize="@dimen/sp_16"/>
 

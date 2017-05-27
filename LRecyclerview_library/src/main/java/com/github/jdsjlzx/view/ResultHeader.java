@@ -9,15 +9,15 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 import com.github.jdsjlzx.R;
-import com.github.jdsjlzx.interfaces.IRefreshResult;
+import com.github.jdsjlzx.interfaces.IResultHeader;
 import com.github.jdsjlzx.interfaces.OnRefreshListener;
 import com.github.jdsjlzx.util.RefreshLoadState;
 
 
 /**
- * RecyclerView下拉刷新后，数据为空、刷新失败（网络异常等）等情况，可以用这个HeaderView来提示用户
+ * RecyclerView获取后，数据为空、刷新失败（网络异常等）等情况，可以用这个HeaderView来提示用户
  */
-public class RefreshResultHeader extends RelativeLayout implements IRefreshResult {
+public class ResultHeader extends RelativeLayout implements IResultHeader {
 
     private TextView tvResult;
     private OnRefreshListener mOnRefreshListener;
@@ -30,22 +30,22 @@ public class RefreshResultHeader extends RelativeLayout implements IRefreshResul
     private int noDataColor = R.color.refreshresult;
     private int noNetWorkColor = R.color.refreshresult;
 
-    public RefreshResultHeader(Context context) {
+    public ResultHeader(Context context) {
         super(context);
         init(context, -1);
     }
 
-    public RefreshResultHeader(Context context, int resId) {
+    public ResultHeader(Context context, int resId) {
         super(context);
         init(context, resId);
     }
 
-    public RefreshResultHeader(Context context, AttributeSet attrs) {
+    public ResultHeader(Context context, AttributeSet attrs) {
         super(context, attrs);
         init(context, -1);
     }
 
-    public RefreshResultHeader(Context context, AttributeSet attrs, int defStyleAttr) {
+    public ResultHeader(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         init(context, -1);
     }
@@ -69,7 +69,6 @@ public class RefreshResultHeader extends RelativeLayout implements IRefreshResul
                 if (mOnRefreshListener != null) {
                     mOnRefreshListener.onRefresh();
                 }
-                setState(RefreshLoadState.LOADING);
             }
         });
     }
@@ -86,7 +85,12 @@ public class RefreshResultHeader extends RelativeLayout implements IRefreshResul
 
     @Override
     public void onNetWorkError() {
-        setState(RefreshLoadState.NONETWORK);
+        setState(RefreshLoadState.NETWORKERROR);
+    }
+
+    @Override
+    public void onLoading() {
+        setState(RefreshLoadState.LOADING);
     }
 
     @Override
@@ -104,6 +108,33 @@ public class RefreshResultHeader extends RelativeLayout implements IRefreshResul
         tvResult = textView;
     }
 
+    public void setLoadingHint(String hint) {
+        this.loadingHint = hint;
+    }
+
+    public void setNoDataHint(String hint) {
+        this.noDataHint = hint;
+    }
+
+    public void setNoNetWorkHint(String hint) {
+        this.noNetWorkHint = hint;
+    }
+
+    public void setLoadingColor(int color) {
+        this.loadingColor = color;
+    }
+
+    public void setNodataColor(int color) {
+        this.noDataColor = color;
+    }
+
+    public void setNoNetWorkColor(int color) {
+        this.noNetWorkColor = color;
+    }
+
+    public void setViewBackgroundColor(int color) {
+        this.setBackgroundColor(ContextCompat.getColor(getContext(), color));
+    }
 
     /**
      * 设置状态
@@ -135,7 +166,7 @@ public class RefreshResultHeader extends RelativeLayout implements IRefreshResul
                 tvResult.setTextColor(ContextCompat.getColor(getContext(), noDataColor));
                 break;
 
-            case RefreshLoadState.NONETWORK:
+            case RefreshLoadState.NETWORKERROR:
                 setClickable(true);
                 this.setVisibility(VISIBLE);
                 tvResult.setText(TextUtils.isEmpty(noNetWorkHint) ? getResources().getString(R.string.refreshresult_nonetwork) : noNetWorkHint);

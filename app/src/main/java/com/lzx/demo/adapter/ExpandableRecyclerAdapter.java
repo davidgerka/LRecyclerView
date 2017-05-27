@@ -8,7 +8,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 
-import com.lzx.demo.bean.ContentInfo;
 import com.github.jdsjlzx.recyclerview.LRecyclerView;
 import com.github.jdsjlzx.util.RecyclerViewUtils;
 import com.handmark.pulltorefresh.library.BaseGroupInfo;
@@ -19,19 +18,20 @@ import java.util.List;
 
 /**
  * 可展开/收起的RecyclerView分组列表的通用适配器
- * Created by lqn on 2017/4/26
  */
 public abstract class ExpandableRecyclerAdapter<T extends BaseModelInfo> extends RecyclerView.Adapter<ExpandableRecyclerAdapter.ViewHolder> {
     public static final int TYPE_HEADER = 0;
     public static final int TYPE_CONTENT = 1;
     public static final int MODE_NORMAL = 0;       //可以展开多个组
     public static final int MODE_ACCORDION = 1;    //只能展开一个组，如果点击另一个组，会收起旧的组，然后展开新的组
-    private static final int ARROW_ROTATION_DURATION = 150;
+    public static final int ARROW_ROTATION_DURATION = 150;
+    public static final int ARROW_EXPAND_ANGLE = 90;    //展开时，箭头角度
+    public static final int ARROW_COLLAPSE_ANGLE = 0;   //收起时，箭头角度
     protected Context mContext;
-    protected List<T> allItems = new ArrayList<>();
-    protected List<T> visibleItems = new ArrayList<>();
-    private List<Integer> indexList = new ArrayList<>();
-    private SparseIntArray expandMap = new SparseIntArray();
+    protected List<T> allItems = new ArrayList<>(); //所有的item
+    protected List<T> visibleItems = new ArrayList<>(); //真正会显示出来的item
+    private List<Integer> indexList = new ArrayList<>();//记录当前显示出来的item在列表的position对应于allItems里面的索引
+    private SparseIntArray expandMap = new SparseIntArray();//记录已展开的组在allItems里面的索引
     private int mode;
     private LayoutInflater mInflater;
 
@@ -41,11 +41,11 @@ public abstract class ExpandableRecyclerAdapter<T extends BaseModelInfo> extends
     }
 
     public static void openArrow(View view) {
-        view.animate().setDuration(ARROW_ROTATION_DURATION).rotation(180);
+        view.animate().setDuration(ARROW_ROTATION_DURATION).rotation(ARROW_EXPAND_ANGLE);
     }
 
     public static void closeArrow(View view) {
-        view.animate().setDuration(ARROW_ROTATION_DURATION).rotation(90);
+        view.animate().setDuration(ARROW_ROTATION_DURATION).rotation(ARROW_COLLAPSE_ANGLE);
     }
 
     @Override
@@ -93,11 +93,30 @@ public abstract class ExpandableRecyclerAdapter<T extends BaseModelInfo> extends
 
         int allItemsPosition = indexList.get(position);
         expandMap.put(allItemsPosition, 1);
+        setGroupExpandFlag(allItemsPosition, true);
 
         if (notify) {
             notifyItemChanged(position);
         }
     }
+
+    /**
+     * 设置组item的展开/收起标记
+     *
+     * @param allItemsPosition 组item在allItems里面的位置
+     * @param flag             true：展开；false：收起
+     */
+    private void setGroupExpandFlag(int allItemsPosition, boolean flag) {
+        if (allItemsPosition < 0 || allItems == null || allItems.size() <= allItemsPosition) {
+            return;
+        }
+        BaseModelInfo baseModelInfo = allItems.get(allItemsPosition);
+        if (baseModelInfo instanceof BaseGroupInfo) {
+            BaseGroupInfo baseGroupInfo = (BaseGroupInfo) baseModelInfo;
+            baseGroupInfo.hasExpand = flag;
+        }
+    }
+
 
     public void collapseItems(int position, boolean notify) {
         int count = 0;
@@ -113,6 +132,7 @@ public abstract class ExpandableRecyclerAdapter<T extends BaseModelInfo> extends
 
         int allItemsPosition = indexList.get(position);
         expandMap.delete(allItemsPosition);
+        setGroupExpandFlag(allItemsPosition, false);
 
         if (notify) {
             notifyItemChanged(position);
@@ -129,24 +149,24 @@ public abstract class ExpandableRecyclerAdapter<T extends BaseModelInfo> extends
         return visibleItems.get(position).itemType;
     }
 
-    public void setGroupItems(List<BaseGroupInfo<ContentInfo>> groupList){
+    public void setGroupItems(List<BaseGroupInfo<BaseModelInfo>> groupList) {
         ArrayList<BaseModelInfo> items = new ArrayList<BaseModelInfo>();
         int i = groupList.size();
         int j;
         BaseGroupInfo baseGroupInfo;
         BaseModelInfo baseModelInfo;
-        for (int n = 0; n < i; n++){
+        for (int n = 0; n < i; n++) {
             baseGroupInfo = groupList.get(n);
             items.add(baseGroupInfo);
-            if(baseGroupInfo.dataList != null && baseGroupInfo.dataList.size() > 0){
+            if (baseGroupInfo.dataList != null && baseGroupInfo.dataList.size() > 0) {
                 j = baseGroupInfo.dataList.size();
-                for (int m = 0; m < j; m++){
+                for (int m = 0; m < j; m++) {
                     baseModelInfo = (BaseModelInfo) baseGroupInfo.dataList.get(m);
                     items.add(baseModelInfo);
                 }
             }
         }
-        setItems((List<T>)items);
+        setItems((List<T>) items);
     }
 
     public void setItems(List<T> items) {
@@ -154,11 +174,25 @@ public abstract class ExpandableRecyclerAdapter<T extends BaseModelInfo> extends
         List<T> visibleItems = new ArrayList<>();
         expandMap.clear();
         indexList.clear();
+        BaseGroupInfo baseGroupInfo;
+        T baseModelInfo;
 
+        boolean visibleChild = false;
         for (int i = 0; i < items.size(); i++) {
-            if (items.get(i).itemType == TYPE_HEADER) {
+            baseModelInfo = items.get(i);
+            if (visibleChild && baseModelInfo instanceof BaseModelInfo && baseModelInfo.itemType == TYPE_CONTENT) {
                 indexList.add(i);
-                visibleItems.add(items.get(i));
+                visibleItems.add(baseModelInfo);
+            } else if (baseModelInfo instanceof BaseGroupInfo && baseModelInfo.itemType == TYPE_HEADER) {
+                baseGroupInfo = (BaseGroupInfo) baseModelInfo;
+                if (baseGroupInfo.hasExpand) {    //展开
+                    expandMap.put(i, 1);
+                    visibleChild = true;
+                } else {
+                    visibleChild = false;
+                }
+                indexList.add(i);
+                visibleItems.add(baseModelInfo);
             }
         }
 
@@ -166,6 +200,11 @@ public abstract class ExpandableRecyclerAdapter<T extends BaseModelInfo> extends
         notifyDataSetChanged();
     }
 
+    /**
+     * 获取position所指向的item所属的组的组索引值(index)
+     * @param position
+     * @return
+     */
     public int getIndexWithPosition(int position){
         if(position < 0 || visibleItems == null || position >= visibleItems.size()){
             return -1;
@@ -180,6 +219,11 @@ public abstract class ExpandableRecyclerAdapter<T extends BaseModelInfo> extends
         return -1;
     }
 
+    /**
+     * 获取组索引值(index)指向的组model，如果指向的不是组model类型，返回null
+     * @param index     组索引值
+     * @return
+     */
     public BaseGroupInfo getGroupModelWithIndex(int index){
         if(index < 0 || visibleItems == null || index >= visibleItems.size()){
             return null;
@@ -192,8 +236,8 @@ public abstract class ExpandableRecyclerAdapter<T extends BaseModelInfo> extends
     }
 
     /**
-     * 获取当前位置的item所属的组的组model
-     * @param position  当前位置
+     * 获取position所指向的item所属的组的组model，获取失败返回null
+     * @param position
      * @return  组model
      */
     public BaseGroupInfo getGroupModelWithPosition(int position){
@@ -294,6 +338,14 @@ public abstract class ExpandableRecyclerAdapter<T extends BaseModelInfo> extends
         this.mode = mode;
     }
 
+    public static class ListItem extends BaseModelInfo {
+        public int ItemType;
+
+        public ListItem(int itemType) {
+            ItemType = itemType;
+        }
+    }
+
     public class ViewHolder extends RecyclerView.ViewHolder {
         public ViewHolder(View view) {
             super(view);
@@ -335,28 +387,8 @@ public abstract class ExpandableRecyclerAdapter<T extends BaseModelInfo> extends
 
         public void bind(int position) {
             if (arrow != null) {
-                arrow.setRotation(isExpanded(position) ? 180 : 90);
+                arrow.setRotation(isExpanded(position) ? ARROW_EXPAND_ANGLE : ARROW_COLLAPSE_ANGLE);
             }
-        }
-    }
-
-    public class StaticViewHolder extends ViewHolder {
-        public StaticViewHolder(View view) {
-            super(view);
-        }
-    }
-
-    public class ItemViewHolder extends ViewHolder {
-        public ItemViewHolder(View view) {
-            super(view);
-        }
-    }
-
-    public static class ListItem extends BaseModelInfo{
-        public int ItemType;
-
-        public ListItem(int itemType) {
-            ItemType = itemType;
         }
     }
 }

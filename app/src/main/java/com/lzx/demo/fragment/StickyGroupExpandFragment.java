@@ -16,6 +16,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.github.jdsjlzx.interfaces.OnLoadMoreListener;
+import com.github.jdsjlzx.interfaces.OnNetWorkErrorListener;
 import com.github.jdsjlzx.interfaces.OnRefreshListener;
 import com.github.jdsjlzx.recyclerview.LRecyclerView;
 import com.github.jdsjlzx.recyclerview.LRecyclerViewAdapter;
@@ -25,6 +26,7 @@ import com.lzx.demo.R;
 import com.lzx.demo.adapter.ExpandableRecyclerAdapter;
 import com.lzx.demo.adapter.StickyGroupExpandAdapter;
 import com.lzx.demo.bean.StickyGroupExpandDataManager;
+import com.lzx.demo.util.NetworkUtils;
 
 import java.lang.ref.WeakReference;
 
@@ -43,7 +45,7 @@ public class StickyGroupExpandFragment extends Fragment {
     private StickyGroupExpandAdapter mDataAdapter = null;
     private LRecyclerViewAdapter mLRecyclerViewAdapter = null;
     private LinearLayoutManager mLinearLayoutManager;
-    private int lvCurrentPage = 1, lvTotalPage = 0;
+    private int lvCurrentPage = 0, lvTotalPage = 4;
     private boolean isRefresh = false;
     private View clickView;
     private StickyGroupExpandDataManager dataManager = new StickyGroupExpandDataManager();
@@ -86,7 +88,8 @@ public class StickyGroupExpandFragment extends Fragment {
         mDataAdapter.setMode(ExpandableRecyclerAdapter.MODE_NORMAL);
         mLRecyclerViewAdapter = new LRecyclerViewAdapter(mDataAdapter);
         mLRecyclerView.setAdapter(mLRecyclerViewAdapter);
-        mLRecyclerView.setShowNoMore(true);
+        mLRecyclerView.setShowNoMore(false);
+        mLRecyclerView.setShowResultHeader(true);
 
         if (userInfoHeaderView != null) {
             mLRecyclerViewAdapter.addHeaderView(userInfoHeaderView);
@@ -124,7 +127,7 @@ public class StickyGroupExpandFragment extends Fragment {
             public void onLoadMore() {
                 if (lvCurrentPage >= lvTotalPage) {
 //                    mLRecyclerView.setNoMore(true);
-                    mLRecyclerView.refreshComplete(1, true);
+                    mLRecyclerView.refreshComplete(1, true, true);
                 } else {
                     loadMore();
                 }
@@ -149,7 +152,7 @@ public class StickyGroupExpandFragment extends Fragment {
                     isClickGroupView = false;
                     mCurrentPosition = mLinearLayoutManager.findFirstVisibleItemPosition();
                     stickyView.setY(0);
-                    updateStickyView(); //这里更新StickView时，一定要判断当前第一个item是输入哪个组的，然后获取当前组的数据来更新StickView
+                    updateStickyView(); //这里更新StickView时，一定要判断当前第一个item是属于哪个组的，然后获取当前组的数据来更新StickView
                 }
                 //我们只是简单的收窄了我们让悬浮条移动的条件，这里就是ItemType必须对应时才发生移动
                 int nextType = mLRecyclerViewAdapter.getItemViewType(mCurrentPosition + 1);
@@ -251,6 +254,7 @@ public class StickyGroupExpandFragment extends Fragment {
      * 上拉加载更多数据
      */
     private void loadMore() {
+        requestLoadMoreData();
     }
 
     /**
@@ -287,11 +291,45 @@ public class StickyGroupExpandFragment extends Fragment {
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
-                mHandler.sendEmptyMessage(-1);
+                if(NetworkUtils.isNetAvailable(getActivity().getApplicationContext())) {
+                    mHandler.sendEmptyMessage(-1);
+                } else {
+                    mHandler.sendEmptyMessage(-3);
+                }
 
             }
         }.start();
     }
+
+    /**
+     * 模拟请求网络，加载更多
+     */
+    private void requestLoadMoreData() {
+        Log.d(TAG, "requestLoadMoreData");
+        new Thread() {
+
+            @Override
+            public void run() {
+                super.run();
+
+                try {
+                    Thread.sleep(5000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+                //模拟一下网络请求失败的情况
+                if(k == 0 && NetworkUtils.isNetAvailable(getActivity().getApplicationContext())) {
+                    mHandler.sendEmptyMessage(-2);
+                } else {
+                    mHandler.sendEmptyMessage(-4);
+                }
+            }
+        }.start();
+    }
+
+    private int k = 0;
+    private static final int SUM = 1;
 
     private class PreviewHandler extends Handler {
 
@@ -310,25 +348,74 @@ public class StickyGroupExpandFragment extends Fragment {
             switch (msg.what) {
 
                 case -1:    //下拉刷新
-
                 {
-                    mCurrentPosition = 0;
-                    dataManager.updateRecordList("");
-                    mDataAdapter.setGroupItems(dataManager.dataList);
-                    mLRecyclerView.refreshComplete(1, true);
-                    updateStickyView();
+                    fragment.lvCurrentPage = 0;
+                    fragment.mCurrentPosition = 0;
+
+//                    if(k == 0) {
+//                        fragment.mLRecyclerView.refreshComplete(1, false, false);
+//                    }else {
+                        fragment.dataManager.refreshRecordList();
+                        fragment.mDataAdapter.setGroupItems(dataManager.dataList);
+                        fragment.mLRecyclerView.refreshComplete(1, false, true);
+//                    }
+                    fragment.updateStickyView();
+                    if(++k > SUM){
+                        k = 0;
+                    }
                 }
                 break;
                 case -2:    //加载更多
+                    fragment.lvCurrentPage++;
+                    if(k == 0){
+                        fragment.mLRecyclerView.refreshComplete(1, false, false);
+                        fragment.mLRecyclerView.setOnNetWorkErrorListener(new OnNetWorkErrorListener() {
+                            @Override
+                            public void reload() {
+                                requestLoadMoreData();
+                            }
+                        });
+                    }else {
+                        fragment.dataManager.addRecordList();
+                        fragment.mDataAdapter.setGroupItems(dataManager.dataList);
+                        if (fragment.lvCurrentPage >= fragment.lvTotalPage) {
+                            fragment.mLRecyclerView.refreshComplete(1, true, true);
+                        }else {
+                            fragment.mLRecyclerView.refreshComplete(1, false, true);
+                        }
 
+                    }
+                    fragment.updateStickyView();
+                    if(++k > SUM){
+                        k = 0;
+                    }
                     break;
                 case -3:
-
-
+                    fragment.mLRecyclerView.refreshComplete(1, false, false);
+                    fragment.notifyDataSetChanged();
+                    fragment.updateStickyView();
                     break;
+                case -4:
+                    fragment.mLRecyclerView.refreshComplete(1, false, false);
+                    fragment.notifyDataSetChanged();
+//                    fragment.mLRecyclerView.setOnNetWorkErrorListener(new OnNetWorkErrorListener() {
+//                        @Override
+//                        public void reload() {
+//                            fragment.requestLoadMoreData();
+//                        }
+//                    });
+                    fragment.updateStickyView();
+                    break;
+
                 default:
                     break;
             }
+        }
+    }
+
+    private void notifyDataSetChanged(){
+        if(mLRecyclerViewAdapter != null){
+            mLRecyclerViewAdapter.notifyDataSetChanged();
         }
     }
 

@@ -15,10 +15,11 @@ import com.github.jdsjlzx.R;
 import com.github.jdsjlzx.interfaces.ILoadMoreFooter;
 import com.github.jdsjlzx.progressindicator.AVLoadingIndicatorView;
 import com.github.jdsjlzx.recyclerview.ProgressStyle;
+import com.github.jdsjlzx.util.RefreshLoadState;
 
-public class LoadingFooter extends RelativeLayout implements ILoadMoreFooter{
+public class LoadingFooter extends RelativeLayout implements ILoadMoreFooter {
 
-    protected State mState = State.Normal;
+    protected int mState = RefreshLoadState.NOMORE;
     private View mLoadingView;
     private View mNetworkErrorView;
     private View mTheEndView;
@@ -30,7 +31,7 @@ public class LoadingFooter extends RelativeLayout implements ILoadMoreFooter{
     private String noMoreHint;
     private String noNetWorkHint;
     private int style;
-    private int indicatorColor ;
+    private int indicatorColor;
     private int hintColor = R.color.colorAccent;
 
     public LoadingFooter(Context context) {
@@ -51,7 +52,6 @@ public class LoadingFooter extends RelativeLayout implements ILoadMoreFooter{
     public void init(Context context) {
 
         inflate(context, R.layout.layout_recyclerview_list_footer, this);
-        setOnClickListener(null);
 
         onReset();//初始为隐藏状态
 
@@ -87,16 +87,16 @@ public class LoadingFooter extends RelativeLayout implements ILoadMoreFooter{
         this.style = style;
     }
 
-    public State getState() {
+    public int getState() {
         return mState;
     }
 
-    public void setState(State status ) {
+    public void setState(int status) {
         setState(status, true);
     }
 
     private View initIndicatorView(int style) {
-        if(style == ProgressStyle.SysProgress) {
+        if (style == ProgressStyle.SysProgress) {
             return new ProgressBar(getContext(), null, android.R.attr.progressBarStyle);
         } else {
             AVLoadingIndicatorView progressView = (AVLoadingIndicatorView) LayoutInflater.from(getContext()).inflate(R.layout.layout_indicator_view, null);
@@ -114,22 +114,22 @@ public class LoadingFooter extends RelativeLayout implements ILoadMoreFooter{
 
     @Override
     public void onLoading() {
-        setState(State.Loading);
+        setState(RefreshLoadState.LOADING);
     }
 
     @Override
     public void onComplete() {
-        setState(State.Normal);
+        setState(RefreshLoadState.NORMAL);
     }
 
     @Override
     public void onNoMore() {
-        setState(State.NoMore);
+        setState(RefreshLoadState.NORMAL);
     }
 
     @Override
     public void onNetWorkError() {
-        setState(State.NetWorkError);
+        setState(RefreshLoadState.NETWORKERROR);
     }
 
     @Override
@@ -143,7 +143,7 @@ public class LoadingFooter extends RelativeLayout implements ILoadMoreFooter{
      * @param status
      * @param showView 是否展示当前View
      */
-    public void setState(State status, boolean showView) {
+    public void setState(int status, boolean showView) {
         if (mState == status) {
             return;
         }
@@ -151,8 +151,7 @@ public class LoadingFooter extends RelativeLayout implements ILoadMoreFooter{
 
         switch (status) {
 
-            case Normal:
-                setOnClickListener(null);
+            case RefreshLoadState.NORMAL:
                 if (mLoadingView != null) {
                     mLoadingView.setVisibility(GONE);
                 }
@@ -164,10 +163,9 @@ public class LoadingFooter extends RelativeLayout implements ILoadMoreFooter{
                 if (mNetworkErrorView != null) {
                     mNetworkErrorView.setVisibility(GONE);
                 }
-
+                setClickable(false);
                 break;
-            case Loading:
-                setOnClickListener(null);
+            case RefreshLoadState.LOADING:
                 if (mTheEndView != null) {
                     mTheEndView.setVisibility(GONE);
                 }
@@ -192,10 +190,9 @@ public class LoadingFooter extends RelativeLayout implements ILoadMoreFooter{
 
                 mLoadingText.setText(TextUtils.isEmpty(loadingHint) ? getResources().getString(R.string.list_footer_loading) : loadingHint);
                 mLoadingText.setTextColor(ContextCompat.getColor(getContext(), hintColor));
-
+                setClickable(false);
                 break;
-            case NoMore:
-                setOnClickListener(null);
+            case RefreshLoadState.NOMORE:
                 if (mLoadingView != null) {
                     mLoadingView.setVisibility(GONE);
                 }
@@ -216,9 +213,9 @@ public class LoadingFooter extends RelativeLayout implements ILoadMoreFooter{
                 mTheEndView.setVisibility(showView ? VISIBLE : GONE);
                 mNoMoreText.setText(TextUtils.isEmpty(noMoreHint) ? getResources().getString(R.string.list_footer_end) : noMoreHint);
                 mNoMoreText.setTextColor(ContextCompat.getColor(getContext(), hintColor));
+                setClickable(false);
                 break;
-            case NetWorkError:
-
+            case RefreshLoadState.NETWORKERROR:
                 if (mLoadingView != null) {
                     mLoadingView.setVisibility(GONE);
                 }
@@ -238,6 +235,7 @@ public class LoadingFooter extends RelativeLayout implements ILoadMoreFooter{
                 mNetworkErrorView.setVisibility(showView ? VISIBLE : GONE);
                 mNoNetWorkText.setText(TextUtils.isEmpty(noNetWorkHint) ? getResources().getString(R.string.list_footer_network_error) : noNetWorkHint);
                 mNoNetWorkText.setTextColor(ContextCompat.getColor(getContext(), hintColor));
+                setClickable(true);
                 break;
             default:
                 break;
